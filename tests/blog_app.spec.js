@@ -110,4 +110,62 @@ describe("Blog app", () => {
       ).not.toBeVisible();
     });
   });
+
+  describe("Blog app", () => {
+    beforeEach(async ({ page, request }) => {
+      await request.post("http://localhost:3001/api/testing/reset");
+
+      // Create user1 (creator)
+      await request.post("http://localhost:3001/api/users", {
+        data: {
+          username: "creator",
+          name: "Creator User",
+          password: "secret",
+        },
+      });
+
+      // Create user2 (another user)
+      await request.post("http://localhost:3001/api/users", {
+        data: {
+          username: "otheruser",
+          name: "Other User",
+          password: "pass",
+        },
+      });
+
+      // Log in as creator
+      await page.goto("http://localhost:5173");
+      await page.getByPlaceholder("Username").fill("creator");
+      await page.getByPlaceholder("Password").fill("secret");
+      await page.getByRole("button", { name: "login" }).click();
+
+      // Create blog
+      await page.getByRole("button", { name: "New Blog" }).click();
+      await page.getByPlaceholder("Title").fill("Visible Blog");
+      await page.getByPlaceholder("Author").fill("Author");
+      await page.getByPlaceholder("URL").fill("https://example.com");
+      await page.getByRole("button", { name: "Create" }).click();
+
+      // Logout
+      await page.getByRole("button", { name: "Logout" }).click();
+    });
+
+    test("creator sees delete button", async ({ page }) => {
+      await page.getByPlaceholder("Username").fill("creator");
+      await page.getByPlaceholder("Password").fill("secret");
+      await page.getByRole("button", { name: "login" }).click();
+
+      await page.getByRole("button", { name: "view" }).click();
+      await expect(page.getByTestId("delete-button")).toBeVisible();
+    });
+
+    test("non-creator does not see delete button", async ({ page }) => {
+      await page.getByPlaceholder("Username").fill("otheruser");
+      await page.getByPlaceholder("Password").fill("pass");
+      await page.getByRole("button", { name: "login" }).click();
+
+      await page.getByRole("button", { name: "view" }).click();
+      await expect(page.getByTestId("delete-button")).not.toBeVisible();
+    });
+  });
 });
