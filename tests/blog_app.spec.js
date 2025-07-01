@@ -111,7 +111,7 @@ describe("Blog app", () => {
     });
   });
 
-  describe("Blog app", () => {
+  describe("Remove Button", () => {
     beforeEach(async ({ page, request }) => {
       await request.post("http://localhost:3001/api/testing/reset");
 
@@ -167,5 +167,84 @@ describe("Blog app", () => {
       await page.getByRole("button", { name: "view" }).click();
       await expect(page.getByTestId("delete-button")).not.toBeVisible();
     });
+  });
+
+  test("blogs are ordered by number of likes (descending)", async ({
+    page,
+    request,
+  }) => {
+    // Reset database
+    await request.post("http://localhost:3001/api/testing/reset");
+
+    // Create user
+    await request.post("http://localhost:3001/api/users", {
+      data: {
+        username: "silsilah",
+        name: "Test User",
+        password: "solaman",
+      },
+    });
+
+    // Login
+    await page.goto("http://localhost:5173");
+    await page.getByPlaceholder("Username").fill("silsilah");
+    await page.getByPlaceholder("Password").fill("solaman");
+    await page.getByRole("button", { name: /login/i }).click();
+    await expect(page.getByText("Welcome, Test User!")).toBeVisible();
+
+    // Add blogs with different likes
+    const blogs = [
+      {
+        title: "First Blog",
+        author: "Author A",
+        url: "http://a.com",
+        likes: 2,
+      },
+      {
+        title: "Second Blog",
+        author: "Author B",
+        url: "http://b.com",
+        likes: 10,
+      },
+      {
+        title: "Third Blog",
+        author: "Author C",
+        url: "http://c.com",
+        likes: 5,
+      },
+    ];
+
+    for (const blog of blogs) {
+      await page.getByRole("button", { name: "New Blog" }).click();
+      await page.getByPlaceholder("Title").fill(blog.title);
+      await page.getByPlaceholder("Author").fill(blog.author);
+      await page.getByPlaceholder("URL").fill(blog.url);
+
+      await page.getByRole("button", { name: "Create" }).click();
+
+      const viewBtn = page.getByRole("button", { name: /view/i }).last();
+      await viewBtn.click();
+
+      for (let i = 0; i < blog.likes; i++) {
+        await page.getByRole("button", { name: "like" }).last().click();
+      }
+
+      await page.reload(); // Ensure sorting is refreshed
+    }
+
+    // Expand all to get likes
+    const viewButtons = await page.getByRole("button", { name: /view/i }).all();
+    for (const button of viewButtons) {
+      await button.click();
+    }
+
+    // Grab likes
+    const likeTexts = await page
+      .locator('[data-testid="likes"]')
+      .allTextContents();
+    const likeCounts = likeTexts.map((text) => parseInt(text.split(" ")[0]));
+    const sorted = [...likeCounts].sort((a, b) => b - a);
+
+    expect(likeCounts).toEqual(sorted);
   });
 });
